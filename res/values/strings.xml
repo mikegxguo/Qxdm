@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="hello">Hello World, QXDM log!</string>
+    <string name="app_name">Enable QXDM</string>
+    <string name="enable_qxdm">Enable QXDM</string>
+</resources>
