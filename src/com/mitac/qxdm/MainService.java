@@ -30,10 +30,20 @@ public class MainService extends Service {
     private Context mContext;
     private StorageManager mStorageManager;
     private static String external_sdcard_path = "";
-    private static String property = "sys.qxdm.running";
+    private static String qxdm_running = "sys.qxdm.running";
+    private static String qxdm_function = "persist.sys.qxdm.function";
+    private int resource_id = R.raw.default_logmask;
 
     public static boolean isQxdmEnabled(){
-        return "true".equals(getSystemProperty(property, "false"));
+        return "true".equals(getSystemProperty(qxdm_running, "false"));
+    }
+
+    public static boolean isLte(){
+        return "lte".equals(getSystemProperty(qxdm_function, ""));
+    }
+
+    public static boolean isGnss(){
+        return "gnss".equals(getSystemProperty(qxdm_function, ""));
     }
 
     public static String getSystemProperty(String property, String defaultValue) {
@@ -136,8 +146,12 @@ public class MainService extends Service {
         //String project = SystemProperties.get("ro.product.name");
         //if(sc600_sku.contains("NA") && project.contains("gemini")) {
         //}
-
-        enableQXDM();
+        if(isLte()) {
+            resource_id = R.raw.default_logmask;
+        } else if(isGnss()) {
+            resource_id = R.raw.gnss_logmask;
+        }
+        enableQXDM(resource_id);
 
         if (EVENT_BOOT_COMPLETED.equals(event)) {
             stopSelf(startId);
@@ -145,10 +159,10 @@ public class MainService extends Service {
         return START_NOT_STICKY;
     }
 
-    private void enableQXDM() {
+    private void enableQXDM(int resId) {
         // enable QXDM here.
         if(isQxdmEnabled() == false) {
-            Log.d(TAG, "start enabling QXDM");
+            Log.d(TAG, "Start QXDM tool ......");
             if (!TextUtils.isEmpty(external_sdcard_path)) {
                 String config = "default_logmask.cfg";
                 String log_folder = "diag_logs";
@@ -158,7 +172,7 @@ public class MainService extends Service {
                 String cmd_00 = "mkdir "+external_sdcard_path+"/"+log_folder;
                 String cmd_01 = "cp "+default_path+"/"+config+" "+input;
                 String cmd_02 = "/vendor/bin/diag_mdlog -f "+input+" -o "+path+" &";
-                copyFilesFromRaw(mContext, R.raw.default_logmask, config, default_path);
+                copyFilesFromRaw(mContext, resId, config, default_path);
                 Log.d(TAG, cmd_00);
                 execCmd(mContext, cmd_00);
                 Log.d(TAG, cmd_01);
@@ -170,12 +184,11 @@ public class MainService extends Service {
                 String path = "/sdcard/diag_logs";
                 String input = "/sdcard/diag_logs/default_logmask.cfg";
                 String cmd = "/vendor/bin/diag_mdlog -f "+input+" -o "+path+" &";
-                copyFilesFromRaw(mContext, R.raw.default_logmask, config, path);
+                copyFilesFromRaw(mContext, resId, config, path);
                 Log.d(TAG, cmd);
                 execCmd(mContext, cmd);
             }
-            setSystemProperty(property, "true");
-            Log.d(TAG, "end enabling QXDM");
+            setSystemProperty(qxdm_running, "true");
         }
     }
 

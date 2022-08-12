@@ -2,6 +2,9 @@
 <resources>
 
     <string name="hello">Hello World, QXDM log!</string>
-    <string name="app_name">Enable QXDM</string>
-    <string name="enable_qxdm">Enable QXDM</string>
+    <string name="app_name">QXDM Tool(2022.08.12)</string>
+    <string name="stop_qxdm">Stop QXDM tool and clear data</string>
+    <string name="start_qxdm">Start QXDM tool</string>
+    <string name="config_lte">lte</string>
+    <string name="config_gnss">gnss</string>
 </resources>

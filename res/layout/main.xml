@@ -14,7 +14,36 @@
         android:id="@+id/Button01"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:onClick="enableQXDM"
-        android:text="@string/enable_qxdm" />
+        android:onClick="stopQXDM"
+        android:text="@string/stop_qxdm"
+        android:textAllCaps="false" />
+
+    <RadioGroup
+        android:id="@+id/config_radio_group"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/config_lte"
+            android:text="@string/config_lte"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp"/>
+
+        <RadioButton
+            android:id="@+id/config_gnss"
+            android:text="@string/config_gnss"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_margin="8dp"/>
+
+    </RadioGroup>
+    <Button
+        android:id="@+id/Button02"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:onClick="startQXDM"
+        android:text="@string/start_qxdm"
+        android:textAllCaps="false" />
 
 </LinearLayout>

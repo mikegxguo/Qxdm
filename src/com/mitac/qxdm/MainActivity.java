@@ -12,6 +12,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.RadioGroup;
 import android.text.TextUtils;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
@@ -23,21 +24,55 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 
 
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements RadioGroup.OnCheckedChangeListener {
     /** Called when the activity is first created. */
     private static String TAG = "MainActivity";
     private TextView mTextView01;
-    private static String VERSION = "1.0.0.0    2022/8/03 12:00";
+    private static String TIP = "If you start a new configuration,\nplease stop QXDM tool(/vendor/bin/diag_mdlog)";
     private Context mContext;
     private StorageManager mStorageManager;
     private static String external_sdcard_path = "";
-    private static String property = "sys.qxdm.running";
+    private static String qxdm_running = "sys.qxdm.running";
+    private static String qxdm_function = "persist.sys.qxdm.function";
+    private int resource_id;
+    private String cmd_kill = "kill -9 `ps -e| grep diag_mdlog | awk -F\" \" '{print $2}'`";
+    private RadioGroup mRadioGroup;
+    private String mMode = "lte";
+    private String config_def = "/sdcard/diag_logs/default_logmask.cfg";
+    // DNS_MODE -> RadioButton id
+    private static final Map<String, Integer> CONFIG_MAP;
+    private static final String CONFIG_LTE = "lte";
+    private static final String CONFIG_GNSS = "gnss";
+
+    static {
+        CONFIG_MAP = new HashMap<>();
+        CONFIG_MAP.put(CONFIG_LTE, R.id.config_lte);
+        CONFIG_MAP.put(CONFIG_GNSS, R.id.config_gnss);
+    }
+
+    public static String getModeFromProperty() {
+        String mode = getSystemProperty(qxdm_function, "");
+        if (!CONFIG_MAP.containsKey(mode)) {
+            mode = CONFIG_LTE;
+        }
+        return CONFIG_MAP.containsKey(mode) ? mode : CONFIG_LTE;
+    }
 
     public static boolean isQxdmEnabled(){
-        return "true".equals(getSystemProperty(property, "false"));
+        return "true".equals(getSystemProperty(qxdm_running, "false"));
+    }
+
+    public static boolean isLte(){
+        return "lte".equals(getSystemProperty(qxdm_function, ""));
+    }
+
+    public static boolean isGnss(){
+        return "gnss".equals(getSystemProperty(qxdm_function, ""));
     }
 
     public static String getSystemProperty(String property, String defaultValue) {
@@ -130,9 +165,15 @@ public class MainActivity extends Activity {
         setContentView(R.layout.main);
 
         mTextView01 = (TextView) findViewById(R.id.myTextView1);
-        mTextView01.setText(VERSION);
+        mTextView01.setText(TIP);
         mContext = this;
         GetExternalSDPath();
+
+        mMode = getModeFromProperty();
+        Log.d(TAG, "CONFIG_MAP, "+mMode);
+        mRadioGroup = findViewById(R.id.config_radio_group);
+        mRadioGroup.setOnCheckedChangeListener(this);
+        mRadioGroup.check(CONFIG_MAP.getOrDefault(mMode, R.id.config_lte));
     }
 
     @Override
@@ -140,10 +181,25 @@ public class MainActivity extends Activity {
         super.onDestroy();
     }
 
-    public void enableQXDM(View v) {
+    @Override
+    public void onCheckedChanged(RadioGroup group, int checkedId) {
+        switch (checkedId) {
+            case R.id.config_lte:
+                mMode = CONFIG_LTE;
+                Log.d(TAG, "onCheckedChanged, CONFIG_LTE");
+                break;
+            case R.id.config_gnss:
+                mMode = CONFIG_GNSS;
+                Log.d(TAG, "onCheckedChanged, CONFIG_GNSS");
+                break;
+        }
+    }
+
+    public void enableQXDM(int resId) {
         // enable QXDM here.
         if(isQxdmEnabled() == false) {
-            Log.d(TAG, "start enabling QXDM");
+            Log.d(TAG, "Start QXDM tool ......");
+            GetExternalSDPath();//FIXME:End user may remove SD card during test
             if (!TextUtils.isEmpty(external_sdcard_path)) {
                 String config = "default_logmask.cfg";
                 String log_folder = "diag_logs";
@@ -153,7 +209,7 @@ public class MainActivity extends Activity {
                 String cmd_00 = "mkdir "+external_sdcard_path+"/"+log_folder;
                 String cmd_01 = "cp "+default_path+"/"+config+" "+input;
                 String cmd_02 = "/vendor/bin/diag_mdlog -f "+input+" -o "+path+" &";
-                copyFilesFromRaw(mContext, R.raw.default_logmask, config, default_path);
+                copyFilesFromRaw(mContext, resId, config, default_path);
                 Log.d(TAG, cmd_00);
                 execCmd(mContext, cmd_00);
                 Log.d(TAG, cmd_01);
@@ -163,17 +219,62 @@ public class MainActivity extends Activity {
             } else { //Internal Flash
                 String config = "default_logmask.cfg";
                 String path = "/sdcard/diag_logs";
-                String input = "/sdcard/diag_logs/default_logmask.cfg";
-                String cmd = "/vendor/bin/diag_mdlog -f "+input+" -o "+path+" &";
-                copyFilesFromRaw(mContext, R.raw.default_logmask, config, path);
+                String cmd = "/vendor/bin/diag_mdlog -f "+config_def+" -o "+path+" &";
+                copyFilesFromRaw(mContext, resId, config, path);
                 Log.d(TAG, cmd);
                 execCmd(mContext, cmd);
             }
-            setSystemProperty(property, "true");
-            Log.d(TAG, "end enabling QXDM");
+            setSystemProperty(qxdm_running, "true");
         }
 
-        String msg = "QXDM log is enabled";
+        String msg = "QXDM tool is just starting";
         Toast.makeText(mContext,msg,Toast.LENGTH_SHORT).show();
     }
+
+    public void clearQxdmData() {
+        if (!TextUtils.isEmpty(external_sdcard_path)) {
+            String log_folder = "diag_logs";
+            String cmd_00 = "rm "+external_sdcard_path+"/"+log_folder+" -rf";
+            Log.d(TAG, cmd_00);
+            execCmd(mContext, cmd_00);
+            String cmd_01 = "rm "+config_def+" -rf";
+            Log.d(TAG, cmd_01);
+            execCmd(mContext, cmd_01);
+        } else { //Internal Flash
+            String path = "/sdcard/diag_logs";
+            String cmd = "rm "+path+" -rf";
+            Log.d(TAG, cmd);
+            execCmd(mContext, cmd);
+        }
+    }
+
+    public void stopQXDM(View v) {
+        if(isQxdmEnabled()) {
+            String msg = "Stop QXDM tool now ...";
+            Toast.makeText(mContext,msg,Toast.LENGTH_SHORT).show();
+            Log.d(TAG, "Stop QXDM tool ......");
+            execCmd(mContext, cmd_kill);
+            clearQxdmData();
+            setSystemProperty(qxdm_running, "false");
+        }
+    }
+
+    public void startQXDM(View v) {
+        if(mMode.equals(CONFIG_LTE)) {//LTE
+            resource_id = R.raw.default_logmask;
+        } else if(mMode.equals(CONFIG_GNSS)) {//GNSS
+            resource_id = R.raw.gnss_logmask;
+        }
+        Log.d(TAG, "mMode="+mMode+" resource ID="+resource_id);
+        setSystemProperty(qxdm_function, mMode);
+
+        if(isQxdmEnabled() == false) {
+            enableQXDM(resource_id);
+        } else {
+            String msg = "QXDM tool is already running";
+            Toast.makeText(mContext,msg,Toast.LENGTH_SHORT).show();
+        }
+    }
+
+
 }
