@@ -39,6 +39,7 @@ public class MainActivity extends Activity implements RadioGroup.OnCheckedChange
     private static String external_sdcard_path = "";
     private static String qxdm_running = "sys.qxdm.running";
     private static String qxdm_function = "persist.sys.qxdm.function";
+    private static String gnss_log = "persist.sys.logservice_gps_enabled";
     private int resource_id;
     private String cmd_kill = "kill -9 `ps -e| grep diag_mdlog | awk -F\" \" '{print $2}'`";
     private RadioGroup mRadioGroup;
@@ -262,8 +263,10 @@ public class MainActivity extends Activity implements RadioGroup.OnCheckedChange
     public void startQXDM(View v) {
         if(mMode.equals(CONFIG_LTE)) {//LTE
             resource_id = R.raw.default_logmask;
+            setSystemProperty(gnss_log, "false");
         } else if(mMode.equals(CONFIG_GNSS)) {//GNSS
             resource_id = R.raw.gnss_logmask;
+            setSystemProperty(gnss_log, "true");
         }
         Log.d(TAG, "mMode="+mMode+" resource ID="+resource_id);
         setSystemProperty(qxdm_function, mMode);
